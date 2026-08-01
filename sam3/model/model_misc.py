@@ -64,6 +64,7 @@ def get_sdpa_settings():
         old_gpu = True
         use_flash_attn = False
         math_kernel_on = True
+        math_kernel_on = True
 
     return old_gpu, use_flash_attn, math_kernel_on
 

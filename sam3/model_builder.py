@@ -602,13 +602,8 @@ def build_sam3_image_model(
     Returns:
         A SAM3 image model
     """
-    if bpe_path is None:
-        if pkg_resources is not None:
-            bpe_path = pkg_resources.resource_filename(
-                "sam3", "assets/bpe_simple_vocab_16e6.txt.gz"
-            )
-        else:
-            bpe_path = os.path.join(os.path.dirname(__file__), "assets", "bpe_simple_vocab_16e6.txt.gz")
+    if bpe_path is None or not os.path.exists(bpe_path):
+        bpe_path = os.path.join(os.path.dirname(__file__), "assets", "bpe_simple_vocab_16e6.txt.gz")
 
     # Create visual components
     compile_mode = "default" if compile else None
@@ -1089,6 +1084,7 @@ def build_sam3_multiplex_video_predictor(
     session_expiration_sec: int = 1200,
     default_output_prob_thresh: float = 0.5,
     async_loading_frames: bool = True,
+    device: str = "cuda" if torch.cuda.is_available() else "cpu",
 ):
     """
     Build a fully-initialized Sam3MultiplexVideoPredictor.
@@ -1114,10 +1110,8 @@ def build_sam3_multiplex_video_predictor(
     Returns:
         Sam3MultiplexVideoPredictor: The fully-initialized predictor
     """
-    if bpe_path is None:
-        bpe_path = pkg_resources.resource_filename(
-            "sam3", "assets/bpe_simple_vocab_16e6.txt.gz"
-        )
+    if bpe_path is None or not os.path.exists(bpe_path):
+        bpe_path = os.path.join(os.path.dirname(__file__), "assets", "bpe_simple_vocab_16e6.txt.gz")
 
     from sam3.model.sam3_multiplex_base import Sam3MultiplexPredictorWrapper
     from sam3.model.sam3_multiplex_detector import Sam3MultiplexDetector
@@ -1135,6 +1129,7 @@ def build_sam3_multiplex_video_predictor(
         use_rope_real=use_rope_real,
         compile=False,
         strict_state_dict_loading=False,
+        device=device,
     )
     del tracker_model.backbone
     # pyrefly: ignore [bad-assignment]
