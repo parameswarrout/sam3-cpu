@@ -15,7 +15,7 @@ from sam3.model.sam3_image_processor import Sam3Processor
 
 # Default paths and global model state
 DEFAULT_CHECKPOINT_PATH = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "models", "sam3", "sam3.pt")
+    os.path.join(os.path.dirname(__file__), "checkpoints", "sam3.pt")
 )
 DEFAULT_DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 

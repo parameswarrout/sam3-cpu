@@ -14,7 +14,7 @@ def main():
         login(token=hf_token)
 
     # Output directory relative to sam3 repo
-    output_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "models", "sam3"))
+    output_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "checkpoints"))
     os.makedirs(output_dir, exist_ok=True)
 
     print(f"Target download directory: {output_dir}")
