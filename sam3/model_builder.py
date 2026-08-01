@@ -5,7 +5,10 @@
 import os
 from typing import Optional
 
-import pkg_resources
+try:
+    import pkg_resources
+except ImportError:
+    pkg_resources = None
 import torch
 import torch.nn as nn
 from huggingface_hub import hf_hub_download
@@ -499,6 +502,8 @@ def build_tracker(
 
 def _create_text_encoder(bpe_path: str) -> VETextEncoder:
     """Create SAM3 text encoder."""
+    if bpe_path is None or not os.path.exists(bpe_path):
+        bpe_path = os.path.join(os.path.dirname(__file__), "assets", "bpe_simple_vocab_16e6.txt.gz")
     tokenizer = SimpleTokenizer(bpe_path=bpe_path)
     return VETextEncoder(
         tokenizer=tokenizer,
@@ -563,8 +568,10 @@ def _load_checkpoint(model, checkpoint_path):
 
 def _setup_device_and_mode(model, device, eval_mode):
     """Setup model device and evaluation mode."""
-    if device == "cuda":
+    if device == "cuda" and torch.cuda.is_available():
         model = model.cuda()
+    else:
+        model = model.to(device=device)
     if eval_mode:
         model.eval()
     return model
@@ -596,9 +603,12 @@ def build_sam3_image_model(
         A SAM3 image model
     """
     if bpe_path is None:
-        bpe_path = pkg_resources.resource_filename(
-            "sam3", "assets/bpe_simple_vocab_16e6.txt.gz"
-        )
+        if pkg_resources is not None:
+            bpe_path = pkg_resources.resource_filename(
+                "sam3", "assets/bpe_simple_vocab_16e6.txt.gz"
+            )
+        else:
+            bpe_path = os.path.join(os.path.dirname(__file__), "assets", "bpe_simple_vocab_16e6.txt.gz")
 
     # Create visual components
     compile_mode = "default" if compile else None
@@ -1228,7 +1238,11 @@ def build_sam3_multiplex_video_predictor(
                 f"Unexpected keys ({len(unexpected_keys)}): {unexpected_keys[:10]}..."
             )
 
-    demo_model.cuda().eval()
+    if device == "cuda" and torch.cuda.is_available():
+        demo_model.cuda()
+    else:
+        demo_model.to(device=device)
+    demo_model.eval()
 
     # Wrap in predictor
     predictor = Sam3MultiplexVideoPredictor(

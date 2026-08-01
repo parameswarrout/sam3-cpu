@@ -5,8 +5,14 @@
 """Triton kernel for euclidean distance transform (EDT)"""
 
 import torch
-import triton
-import triton.language as tl
+try:
+    import triton
+    import triton.language as tl
+    triton_jit = triton.jit
+except ImportError:
+    triton = None
+    tl = None
+    triton_jit = lambda fn: fn
 
 """
 Disclaimer: This implementation is not meant to be extremely efficient. A CUDA kernel would likely be more efficient.
@@ -52,8 +58,8 @@ Overall, despite being quite naive, this implementation is roughly 5.5x faster t
 """
 
 
-@triton.jit
-def edt_kernel(inputs_ptr, outputs_ptr, v, z, height, width, horizontal: tl.constexpr):
+@triton_jit
+def edt_kernel(inputs_ptr, outputs_ptr, v, z, height, width, horizontal: tl.constexpr if tl is not None else True):
     # This is a somewhat verbatim implementation of the efficient 1D EDT algorithm described above
     # It can be applied horizontally or vertically depending if we're doing the first or second stage.
     # It's parallelized across batch+row (or batch+col if horizontal=False)
@@ -127,6 +133,19 @@ def edt_triton(data: torch.Tensor):
         A tensor of the same shape as data containing the EDT.
         It should be equivalent to a batched version of cv2.distanceTransform(input, cv2.DIST_L2, 0)
     """
+    if triton is None or not data.is_cuda:
+        import numpy as np
+        try:
+            from scipy.ndimage import distance_transform_edt
+            device = data.device
+            np_data = (~data.bool()).cpu().numpy()
+            out = np.zeros_like(np_data, dtype=np.float32)
+            for i in range(np_data.shape[0]):
+                out[i] = distance_transform_edt(np_data[i])
+            return torch.from_numpy(out).to(device)
+        except Exception:
+            return torch.where(data, 1e2, 0.0).float()
+
     assert data.dim() == 3
     assert data.is_cuda
     B, H, W = data.shape

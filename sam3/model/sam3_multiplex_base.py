@@ -2301,9 +2301,7 @@ class Sam3MultiplexBase(Sam3VideoBase):
         # Suppress if: keep_alive <= 0 AND not hotstart-only mode AND not removed
         suppress_by_unmatch = (
             (trk_keep_alive <= 0)
-            & torch.tensor(not self.suppress_unmatched_only_within_hotstart)
-            .pin_memory()
-            .to(device=device, non_blocking=True)
+            & torch.tensor(not self.suppress_unmatched_only_within_hotstart, device=device)
             & ~removed_mask
             & ~remove_by_unmatch
         )
@@ -2572,9 +2570,7 @@ class Sam3MultiplexBase(Sam3VideoBase):
                 local_idx = (
                     # pyre-fixme[61]: `object_idx_assignment` is undefined, or not
                     #  always defined.
-                    torch.tensor(object_idx_assignment[state_i])
-                    .pin_memory()
-                    .to(device=high_res_masks.device, non_blocking=True)
+                    torch.tensor(object_idx_assignment[state_i], device=high_res_masks.device)
                 )
                 local_high_res_masks = high_res_masks[local_idx]
                 local_object_score_logits = object_score_logits[local_idx]

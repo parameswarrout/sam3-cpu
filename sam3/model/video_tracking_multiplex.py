@@ -537,11 +537,12 @@ class VideoTrackingMultiplex(nn.Module):
         if dummy:
             return torch.zeros(len(rel_pos_list), self.mem_dim, device=device)
 
-        t_diff_max = max_abs_pos - 1 if max_abs_pos is not None else 1
-        pos_enc = (
-            torch.tensor(rel_pos_list).pin_memory().to(device=device, non_blocking=True)
-            / t_diff_max
-        )
+        dev_type = getattr(device, "type", str(device))
+        if dev_type == "cuda" and torch.cuda.is_available():
+            rel_pos_tensor = torch.tensor(rel_pos_list).pin_memory().to(device=device, non_blocking=True)
+        else:
+            rel_pos_tensor = torch.tensor(rel_pos_list).to(device=device)
+        pos_enc = rel_pos_tensor / t_diff_max
         if self.sincos_tpos_enc:
             tpos_dim = (
                 self.hidden_dim if self.proj_tpos_enc_in_obj_ptrs else self.mem_dim
@@ -1465,8 +1466,8 @@ class VideoTrackingMultiplex(nn.Module):
 
                 if self.save_image_features:
                     # image features are in (HW)BC
-                    image_feat = prev["image_features"].cuda()
-                    image_pos_embed = prev["image_pos_enc"].cuda() + tpos_enc
+                    image_feat = prev["image_features"].to(device=self.device if hasattr(self, 'device') else ('cuda' if torch.cuda.is_available() else 'cpu'))
+                    image_pos_embed = prev["image_pos_enc"].to(device=self.device if hasattr(self, 'device') else ('cuda' if torch.cuda.is_available() else 'cpu')) + tpos_enc
                     # pyrefly: ignore [unbound-name]
                     to_cat_image_feat.append(image_feat)
                     # pyrefly: ignore [unbound-name]

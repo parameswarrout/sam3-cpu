@@ -40,19 +40,18 @@ class Sam3VideoPredictor(Sam3BasePredictor):
         self.video_loader_type = video_loader_type
         from sam3.model_builder import build_sam3_video_model
 
-        self.model = (
-            build_sam3_video_model(
-                checkpoint_path=checkpoint_path,
-                bpe_path=bpe_path,
-                has_presence_token=has_presence_token,
-                geo_encoder_use_img_cross_attn=geo_encoder_use_img_cross_attn,
-                strict_state_dict_loading=strict_state_dict_loading,
-                apply_temporal_disambiguation=apply_temporal_disambiguation,
-                compile=compile,
-            )
-            .cuda()
-            .eval()
+        model = build_sam3_video_model(
+            checkpoint_path=checkpoint_path,
+            bpe_path=bpe_path,
+            has_presence_token=has_presence_token,
+            geo_encoder_use_img_cross_attn=geo_encoder_use_img_cross_attn,
+            strict_state_dict_loading=strict_state_dict_loading,
+            apply_temporal_disambiguation=apply_temporal_disambiguation,
+            compile=compile,
         )
+        if torch.cuda.is_available():
+            model = model.cuda()
+        self.model = model.eval()
 
     def remove_object(
         self,
@@ -238,7 +237,7 @@ class Sam3VideoPredictorMultiGPU(Sam3VideoPredictor):
             device_id=self.device,
         )
         # warm-up the NCCL process group by running a dummy all-reduce
-        tensor = torch.ones(1024, 1024).cuda()
+        tensor = torch.ones(1024, 1024, device="cuda" if torch.cuda.is_available() else "cpu")
         torch.distributed.all_reduce(tensor)
         logger.debug(f"started NCCL process group on {rank=} with {world_size=}")
 

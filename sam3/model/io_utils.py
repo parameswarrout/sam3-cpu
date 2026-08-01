@@ -69,7 +69,7 @@ def load_resource_as_video_frames(
             images.append(img)
         images = torch.stack(images)
         if not offload_video_to_cpu:
-            images = images.cuda()
+            images = images.to(device=device) if "device" in locals() or "device" in globals() else (images.cuda() if torch.cuda.is_available() else images)
         return images, orig_height, orig_width
 
     is_image = (
@@ -112,11 +112,11 @@ def load_image_as_single_frame_video(
     # pyrefly: ignore [bad-assignment]
     img_std = torch.tensor(img_std, dtype=torch.float16)[:, None, None]
     if not offload_video_to_cpu:
-        images = images.cuda()
+        images = images.to(device=device) if "device" in locals() or "device" in globals() else (images.cuda() if torch.cuda.is_available() else images)
         # pyrefly: ignore [missing-attribute]
-        img_mean = img_mean.cuda()
+        img_mean = img_mean.to(device=device) if "device" in locals() or "device" in globals() else (img_mean.cuda() if torch.cuda.is_available() else img_mean)
         # pyrefly: ignore [missing-attribute]
-        img_std = img_std.cuda()
+        img_std = img_std.to(device=device) if "device" in locals() or "device" in globals() else (img_std.cuda() if torch.cuda.is_available() else img_std)
     # normalize by mean and std
     # pyrefly: ignore [unsupported-operation]
     images -= img_mean
@@ -236,9 +236,9 @@ def load_video_frames_from_image_folder(
     ):
         images[n], video_height, video_width = _load_img_as_tensor(img_path, image_size)
     if not offload_video_to_cpu:
-        images = images.cuda()
-        img_mean = img_mean.cuda()
-        img_std = img_std.cuda()
+        images = images.to(device=device) if "device" in locals() or "device" in globals() else (images.cuda() if torch.cuda.is_available() else images)
+        img_mean = img_mean.to(device=device) if "device" in locals() or "device" in globals() else (img_mean.cuda() if torch.cuda.is_available() else img_mean)
+        img_std = img_std.to(device=device) if "device" in locals() or "device" in globals() else (img_std.cuda() if torch.cuda.is_available() else img_std)
     # normalize by mean and std
     images -= img_mean
     images /= img_std
@@ -350,11 +350,11 @@ def load_video_frames_from_video_file_using_cv2(
     # pyrefly: ignore [bad-assignment]
     img_std = torch.tensor(img_std, dtype=torch.float16).view(1, 3, 1, 1)
     if not offload_video_to_cpu:
-        video_tensor = video_tensor.cuda()
+        video_tensor = video_tensor.to(device=device) if "device" in locals() or "device" in globals() else (video_tensor.cuda() if torch.cuda.is_available() else video_tensor)
         # pyrefly: ignore [missing-attribute]
-        img_mean = img_mean.cuda()
+        img_mean = img_mean.to(device=device) if "device" in locals() or "device" in globals() else (img_mean.cuda() if torch.cuda.is_available() else img_mean)
         # pyrefly: ignore [missing-attribute]
-        img_std = img_std.cuda()
+        img_std = img_std.to(device=device) if "device" in locals() or "device" in globals() else (img_std.cuda() if torch.cuda.is_available() else img_std)
     # normalize by mean and std
     # pyrefly: ignore [unsupported-operation]
     video_tensor -= img_mean
@@ -374,7 +374,7 @@ def load_dummy_video(image_size, offload_video_to_cpu, num_frames=60, do_zeros=F
     else:
         images = torch.zeros(num_frames, 3, image_size, image_size, dtype=torch.float16)
     if not offload_video_to_cpu:
-        images = images.cuda()
+        images = images.to(device=device) if "device" in locals() or "device" in globals() else (images.cuda() if torch.cuda.is_available() else images)
     return images, video_height, video_width
 
 
@@ -447,7 +447,7 @@ class AsyncImageFrameLoader:
         img -= self.img_mean
         img /= self.img_std
         if not self.offload_video_to_cpu:
-            img = img.cuda()
+            img = img.to(device=device) if "device" in locals() or "device" in globals() else (img.cuda() if torch.cuda.is_available() else img)
         self.images[index] = img
         return img
 

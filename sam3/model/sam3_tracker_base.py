@@ -162,11 +162,12 @@ class Sam3TrackerBase(torch.nn.Module):
         if dummy:
             return torch.zeros(len(rel_pos_list), self.mem_dim, device=device)
 
-        t_diff_max = max_abs_pos - 1 if max_abs_pos is not None else 1
-        pos_enc = (
-            torch.tensor(rel_pos_list).pin_memory().to(device=device, non_blocking=True)
-            / t_diff_max
-        )
+        dev_type = getattr(device, "type", str(device))
+        if dev_type == "cuda" and torch.cuda.is_available():
+            rel_pos_tensor = torch.tensor(rel_pos_list).pin_memory().to(device=device, non_blocking=True)
+        else:
+            rel_pos_tensor = torch.tensor(rel_pos_list).to(device=device)
+        pos_enc = rel_pos_tensor / t_diff_max
         tpos_dim = self.hidden_dim
         pos_enc = get_1d_sine_pe(pos_enc, dim=tpos_dim)
         pos_enc = self.obj_ptr_tpos_proj(pos_enc)
@@ -660,7 +661,7 @@ class Sam3TrackerBase(torch.nn.Module):
                     torch.zeros(B, seq_len, device=device, dtype=bool)
                 )
                 # Spatial positional encoding (it might have been offloaded to CPU in eval)
-                maskmem_enc = prev["maskmem_pos_enc"][-1].cuda()
+                maskmem_enc = prev["maskmem_pos_enc"][-1].to(device=self.device if hasattr(self, 'device') else ('cuda' if torch.cuda.is_available() else 'cpu'))
                 maskmem_enc = maskmem_enc.flatten(2).permute(2, 0, 1)
 
                 if (

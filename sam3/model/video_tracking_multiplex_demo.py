@@ -2634,7 +2634,7 @@ class VideoTrackingMultiplexDemo(VideoTrackingDynamicMultiplex):
         )
         if backbone_out is None:
             # Cache miss -- we will run inference on a single image
-            image = inference_state["images"][frame_idx].cuda().float().unsqueeze(0)
+            image = inference_state["images"][frame_idx].to(device=self.device if hasattr(self, 'device') else ('cuda' if torch.cuda.is_available() else 'cpu')).float().unsqueeze(0)
             # TODO: We should optimize this because we don't always need all three outs
             backbone_out = self.forward_image(
                 NestedTensor(tensors=image, mask=None),

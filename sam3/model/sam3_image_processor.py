@@ -14,10 +14,10 @@ from torchvision.transforms import v2
 class Sam3Processor:
     """ """
 
-    def __init__(self, model, resolution=1008, device="cuda", confidence_threshold=0.5):
+    def __init__(self, model, resolution=1008, device=None, confidence_threshold=0.5):
         self.model = model
         self.resolution = resolution
-        self.device = device
+        self.device = device if device is not None else ("cuda" if torch.cuda.is_available() else "cpu")
         self.transform = v2.Compose(
             [
                 v2.ToDtype(torch.uint8, scale=True),
@@ -52,7 +52,8 @@ class Sam3Processor:
             raise ValueError("Image must be a PIL image or a tensor")
 
         image = v2.functional.to_image(image).to(self.device)
-        image = self.transform(image).unsqueeze(0)
+        model_dtype = next(self.model.parameters()).dtype
+        image = self.transform(image).unsqueeze(0).to(dtype=model_dtype)
 
         state["original_height"] = height
         state["original_width"] = width
