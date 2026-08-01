@@ -151,6 +151,28 @@ class Sam3Processor:
         labels = torch.tensor([label], device=self.device, dtype=torch.bool).view(1, 1)
         state["geometric_prompt"].append_boxes(boxes, labels)
 
+    @torch.inference_mode()
+    def add_point_prompt(self, points: List, labels: List, state: Dict):
+        """Adds point prompt(s) and runs inference.
+        points: List of [x_norm, y_norm] coordinates in [0, 1] relative scale.
+        labels: List of booleans / ints (1 for foreground, 0 for background).
+        """
+        if "backbone_out" not in state:
+            raise ValueError("You must call set_image before add_point_prompt")
+
+        if "language_features" not in state["backbone_out"]:
+            dummy_text_outputs = self.model.backbone.forward_text(
+                ["visual"], device=self.device
+            )
+            state["backbone_out"].update(dummy_text_outputs)
+
+        if "geometric_prompt" not in state:
+            state["geometric_prompt"] = self.model._get_dummy_prompt()
+
+        pts_tensor = torch.tensor(points, device=self.device, dtype=torch.float32).unsqueeze(0)
+        lbls_tensor = torch.tensor(labels, device=self.device, dtype=torch.bool).unsqueeze(0)
+        state["geometric_prompt"].append_points(pts_tensor, lbls_tensor)
+
         return self._forward_grounding(state)
 
     def reset_all_prompts(self, state: Dict):
