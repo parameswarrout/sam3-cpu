@@ -95,8 +95,9 @@ class VideoTrackingMultiplexDemo(VideoTrackingDynamicMultiplex):
         # the original video height and width, used for resizing final output scores
         inference_state["video_height"] = video_height
         inference_state["video_width"] = video_width
-        inference_state["device"] = torch.device("cuda")
-        if offload_state_to_cpu:
+        dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        inference_state["device"] = dev
+        if offload_state_to_cpu or not torch.cuda.is_available() or dev.type == "cpu":
             inference_state["storage_device"] = torch.device("cpu")
         else:
             inference_state["storage_device"] = torch.device("cuda")
@@ -1417,9 +1418,12 @@ class VideoTrackingMultiplexDemo(VideoTrackingDynamicMultiplex):
                     )
 
                 if prev_out is not None and prev_out["pred_masks"] is not None:
-                    prev_sam_mask_logits_singleton = prev_out["pred_masks"].cuda(
-                        non_blocking=True
-                    )
+                    if torch.cuda.is_available():
+                        prev_sam_mask_logits_singleton = prev_out["pred_masks"].cuda(
+                            non_blocking=True
+                        )
+                    else:
+                        prev_sam_mask_logits_singleton = prev_out["pred_masks"].to(device=self.device if hasattr(self, "device") else "cpu")
                     prev_sam_mask_logits_singleton = torch.clamp(
                         prev_sam_mask_logits_singleton, -32.0, 32.0
                     )

@@ -615,16 +615,29 @@ class Sam3VideoBase(nn.Module):
 
         # Step 3: build SAM2 backbone features and store them in `feature_cache`
         backbone_cache = {}
-        sam_mask_decoder = self.tracker.sam_mask_decoder
-        tracker_backbone_fpn = [
-            # pyre-fixme[16]: Item `Tensor` of `Tensor | Module` has no attribute
-            #  `conv_s0`.
-            sam_mask_decoder.conv_s0(sam3_image_out["tracker_backbone_fpn_0"]),
-            # pyre-fixme[16]: Item `Tensor` of `Tensor | Module` has no attribute
-            #  `conv_s1`.
-            sam_mask_decoder.conv_s1(sam3_image_out["tracker_backbone_fpn_1"]),
-            sam3_image_out["tracker_backbone_fpn_2"],  # fpn_2 doesn't need conv
-        ]
+        if hasattr(self.tracker, "sam_mask_decoder"):
+            sam_mask_decoder = self.tracker.sam_mask_decoder
+        elif hasattr(self.tracker, "model") and hasattr(self.tracker.model, "sam_mask_decoder"):
+            sam_mask_decoder = self.tracker.model.sam_mask_decoder
+        else:
+            sam_mask_decoder = getattr(self.tracker, "sam_mask_decoder", None)
+
+        if sam_mask_decoder is not None and hasattr(sam_mask_decoder, "conv_s0"):
+            target_dtype = sam_mask_decoder.conv_s0.weight.dtype
+            fpn0 = sam3_image_out["tracker_backbone_fpn_0"].to(dtype=target_dtype)
+            fpn1 = sam3_image_out["tracker_backbone_fpn_1"].to(dtype=target_dtype)
+            fpn2 = sam3_image_out["tracker_backbone_fpn_2"].to(dtype=target_dtype)
+            tracker_backbone_fpn = [
+                sam_mask_decoder.conv_s0(fpn0),
+                sam_mask_decoder.conv_s1(fpn1),
+                fpn2,
+            ]
+        else:
+            tracker_backbone_fpn = [
+                sam3_image_out["tracker_backbone_fpn_0"],
+                sam3_image_out["tracker_backbone_fpn_1"],
+                sam3_image_out["tracker_backbone_fpn_2"],
+            ]
         tracker_backbone_out = {
             "vision_features": tracker_backbone_fpn[-1],  # top-level feature
             "vision_pos_enc": sam3_image_out["tracker_backbone_pos_enc"],

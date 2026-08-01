@@ -35,6 +35,8 @@ class Sam3VideoPredictor(Sam3BasePredictor):
         apply_temporal_disambiguation: bool = True,
         compile: bool = False,
         device="cuda" if torch.cuda.is_available() else "cpu",
+        load_from_HF: bool = True,
+        **kwargs,
     ):
         super().__init__()
         self.async_loading_frames = async_loading_frames
@@ -43,6 +45,7 @@ class Sam3VideoPredictor(Sam3BasePredictor):
 
         model = build_sam3_video_model(
             checkpoint_path=checkpoint_path,
+            load_from_HF=load_from_HF,
             bpe_path=bpe_path,
             has_presence_token=has_presence_token,
             geo_encoder_use_img_cross_attn=geo_encoder_use_img_cross_attn,

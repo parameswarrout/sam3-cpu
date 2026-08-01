@@ -542,6 +542,7 @@ class VideoTrackingMultiplex(nn.Module):
             rel_pos_tensor = torch.tensor(rel_pos_list).pin_memory().to(device=device, non_blocking=True)
         else:
             rel_pos_tensor = torch.tensor(rel_pos_list).to(device=device)
+        t_diff_max = max_abs_pos or self.max_obj_ptrs_in_encoder
         pos_enc = rel_pos_tensor / t_diff_max
         if self.sincos_tpos_enc:
             tpos_dim = (
@@ -1422,7 +1423,10 @@ class VideoTrackingMultiplex(nn.Module):
                     continue
                 # "maskmem_features" might have been offloaded to CPU in demo use cases,
                 # so we load it back to GPU (it's a no-op if it's already on GPU).
-                feats = feats.cuda(non_blocking=True)
+                if torch.cuda.is_available():
+                    feats = feats.cuda(non_blocking=True)
+                else:
+                    feats = feats.to(device=device)
                 if feats.dim() == 5:
                     feats = multiplex_state.demux(feats).contiguous()
                     prev["maskmem_features"] = (
@@ -1441,7 +1445,10 @@ class VideoTrackingMultiplex(nn.Module):
                 maskmem_enc = maskmem_pos_list[-1]
                 if maskmem_enc is None:
                     continue
-                maskmem_enc = maskmem_enc.cuda(non_blocking=True)
+                if torch.cuda.is_available():
+                    maskmem_enc = maskmem_enc.cuda(non_blocking=True)
+                else:
+                    maskmem_enc = maskmem_enc.to(device=device)
                 if maskmem_enc.dim() == 5:
                     maskmem_enc = multiplex_state.demux(maskmem_enc).contiguous()
                     prev["maskmem_pos_enc"][-1] = (

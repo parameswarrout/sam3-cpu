@@ -75,8 +75,9 @@ class Sam3TrackerPredictor(Sam3TrackerBase):
         # (e.g. in a test case of 768x768 model, fps dropped from 27 to 24 when tracking one object
         # and from 24 to 21 when tracking two objects)
         inference_state["offload_state_to_cpu"] = offload_state_to_cpu
-        inference_state["device"] = self.device
-        if offload_state_to_cpu:
+        dev = self.device if hasattr(self, "device") else torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        inference_state["device"] = dev
+        if offload_state_to_cpu or not torch.cuda.is_available() or dev.type == "cpu":
             inference_state["storage_device"] = torch.device("cpu")
         else:
             inference_state["storage_device"] = torch.device("cuda")
@@ -301,7 +302,10 @@ class Sam3TrackerPredictor(Sam3TrackerBase):
                     prev_out = obj_output_dict["non_cond_frame_outputs"].get(frame_idx)
 
             if prev_out is not None and prev_out["pred_masks"] is not None:
-                prev_sam_mask_logits = prev_out["pred_masks"].cuda(non_blocking=True)
+                if torch.cuda.is_available():
+                    prev_sam_mask_logits = prev_out["pred_masks"].cuda(non_blocking=True)
+                else:
+                    prev_sam_mask_logits = prev_out["pred_masks"].to(device=self.device if hasattr(self, "device") else "cpu")
                 # Clamp the scale of prev_sam_mask_logits to avoid rare numerical issues.
                 prev_sam_mask_logits = torch.clamp(prev_sam_mask_logits, -32.0, 32.0)
         current_out, _ = self._run_single_frame_inference(
@@ -1092,12 +1096,19 @@ class Sam3TrackerPredictor(Sam3TrackerBase):
 
         # optionally offload the output to CPU memory to save GPU space
         storage_device = inference_state["storage_device"]
+        is_cuda = storage_device.type == "cuda" and torch.cuda.is_available()
         maskmem_features = current_out["maskmem_features"]
         if maskmem_features is not None:
-            maskmem_features = maskmem_features.to(torch.bfloat16)
-            maskmem_features = maskmem_features.to(storage_device, non_blocking=True)
+            if is_cuda:
+                maskmem_features = maskmem_features.to(torch.bfloat16)
+                maskmem_features = maskmem_features.to(storage_device, non_blocking=True)
+            else:
+                maskmem_features = maskmem_features.to(storage_device)
         pred_masks_gpu = current_out["pred_masks"]
-        pred_masks = pred_masks_gpu.to(storage_device, non_blocking=True)
+        if is_cuda:
+            pred_masks = pred_masks_gpu.to(storage_device, non_blocking=True)
+        else:
+            pred_masks = pred_masks_gpu.to(storage_device)
         # "maskmem_pos_enc" is the same across frames, so we only need to store one copy of it
         maskmem_pos_enc = self._get_maskmem_pos_enc(inference_state, current_out)
         # object pointer is a small tensor, so we always keep it on GPU memory for fast access
@@ -1145,8 +1156,11 @@ class Sam3TrackerPredictor(Sam3TrackerBase):
 
         # optionally offload the output to CPU memory to save GPU space
         storage_device = inference_state["storage_device"]
-        maskmem_features = maskmem_features.to(torch.bfloat16)
-        maskmem_features = maskmem_features.to(storage_device, non_blocking=True)
+        if storage_device.type == "cuda" and torch.cuda.is_available():
+            maskmem_features = maskmem_features.to(torch.bfloat16)
+            maskmem_features = maskmem_features.to(storage_device, non_blocking=True)
+        else:
+            maskmem_features = maskmem_features.to(storage_device)
         # "maskmem_pos_enc" is the same across frames, so we only need to store one copy of it
         maskmem_pos_enc = self._get_maskmem_pos_enc(
             inference_state, {"maskmem_pos_enc": maskmem_pos_enc}
