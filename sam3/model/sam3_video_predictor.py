@@ -34,6 +34,7 @@ class Sam3VideoPredictor(Sam3BasePredictor):
         video_loader_type="cv2",
         apply_temporal_disambiguation: bool = True,
         compile: bool = False,
+        device="cuda" if torch.cuda.is_available() else "cpu",
     ):
         super().__init__()
         self.async_loading_frames = async_loading_frames
@@ -48,9 +49,12 @@ class Sam3VideoPredictor(Sam3BasePredictor):
             strict_state_dict_loading=strict_state_dict_loading,
             apply_temporal_disambiguation=apply_temporal_disambiguation,
             compile=compile,
+            device=device,
         )
-        if torch.cuda.is_available():
+        if device == "cuda" and torch.cuda.is_available():
             model = model.cuda()
+        else:
+            model = model.to(device=device)
         self.model = model.eval()
 
     def remove_object(
@@ -99,8 +103,10 @@ class Sam3VideoPredictor(Sam3BasePredictor):
 class Sam3VideoPredictorMultiGPU(Sam3VideoPredictor):
     def __init__(self, *model_args, gpus_to_use=None, **model_kwargs):
         if gpus_to_use is None:
-            # if not specified, use only the current GPU by default
-            gpus_to_use = [torch.cuda.current_device()]
+            if torch.cuda.is_available():
+                gpus_to_use = [torch.cuda.current_device()]
+            else:
+                gpus_to_use = [0]
 
         IS_MAIN_PROCESS = os.getenv("IS_MAIN_PROCESS", "1") == "1"
         if IS_MAIN_PROCESS:
@@ -117,8 +123,11 @@ class Sam3VideoPredictorMultiGPU(Sam3VideoPredictor):
         self.rank = int(os.environ["RANK"])
         self.world_size = int(os.environ["WORLD_SIZE"])
         self.rank_str = f"rank={self.rank} with world_size={self.world_size}"
-        self.device = torch.device(f"cuda:{self.gpus_to_use[self.rank]}")
-        torch.cuda.set_device(self.device)
+        if torch.cuda.is_available():
+            self.device = torch.device(f"cuda:{self.gpus_to_use[self.rank]}")
+            torch.cuda.set_device(self.device)
+        else:
+            self.device = torch.device("cpu")
         self.has_shutdown = False
         if self.rank == 0:
             logger.info("\n\n\n\t*** START loading model on all ranks ***\n\n")
